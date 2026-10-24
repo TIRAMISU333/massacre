@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MASSACRE</title>
+<style>
+:root{--bg:#070707;--bar:#140f10;--raised:#1d1516;--line:#2a1517;--red:#e11d2e;--text:#f2e9ea;--dim:#8d7d7f;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;display:grid;grid-template-rows:auto auto 1fr;overflow:hidden}
+#tabs{display:flex;align-items:flex-end;gap:4px;padding:6px 8px 0;background:var(--bg);border-bottom:1px solid var(--line);min-width:0}
+.brand{font-weight:800;letter-spacing:.16em;color:var(--red);padding:0 12px 8px 4px;font-size:13px;white-space:nowrap}
+#list{display:flex;gap:4px;min-width:0;overflow-x:auto;flex:1}
+.tab{display:flex;align-items:center;gap:6px;flex:0 1 200px;min-width:110px;height:32px;padding:0 6px 0 12px;border-radius:9px 9px 0 0;color:var(--dim);cursor:pointer}
+.tab:hover{background:var(--bar);color:var(--text)}
+.tab.on{background:var(--bar);color:var(--text);box-shadow:inset 0 2px 0 var(--red)}
+.tab span{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tab button{color:inherit;background:none;border:0;cursor:pointer;font-size:16px;line-height:1;padding:4px 6px;border-radius:6px;opacity:.6}
+.tab button:hover{opacity:1;background:var(--raised)}
+#new{color:var(--dim);background:none;border:0;cursor:pointer;font-size:20px;line-height:1;padding:0 10px 6px}
+#new:hover{color:var(--text)}
+#bar{display:flex;gap:6px;align-items:center;padding:8px 10px;background:var(--bar);border-bottom:1px solid var(--line)}
+.nav{width:32px;height:32px;border:0;border-radius:8px;background:none;color:var(--text);cursor:pointer;font-size:18px;flex:none}
+.nav:hover:not(:disabled){background:var(--raised)}
+.nav:disabled{opacity:.3;cursor:default}
+#addr{flex:1;min-width:0;height:34px;border-radius:17px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:0 14px;font:13px ui-monospace,Consolas,monospace;outline:none}
+#addr:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(225,29,46,.18)}
+#frame{width:100%;height:100%;border:0;background:#fff}
+#scrim{position:fixed;inset:0;background:rgba(0,0,0,.7);display:grid;place-items:center;z-index:20;padding:16px}
+#scrim[hidden]{display:none}
+#panel{width:min(480px,100%);background:var(--bar);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:14px}
+.phead{display:flex;align-items:center;justify-content:space-between}
+.phead h2{margin:0;font-size:18px;color:var(--red);letter-spacing:.08em;text-transform:uppercase}
+.field{display:grid;gap:6px;color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.field input,.field select{height:36px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);padding:0 10px;font:13px system-ui,sans-serif;text-transform:none;letter-spacing:0}
+.field[hidden]{display:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions button{height:34px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--raised);color:var(--text);cursor:pointer}
+.actions #s-save{background:var(--red);border-color:var(--red);color:#fff}
+.note{margin:0;min-height:18px;color:var(--dim);font-size:12px}
+:focus-visible{outline:2px solid var(--red);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="tabs">
+  <div class="brand">MASSACRE</div>
+  <div id="list" role="tablist"></div>
+  <button id="new" title="New tab" aria-label="New tab">+</button>
+</div>
+<div id="bar">
+  <button class="nav" id="back" title="Back" aria-label="Back">&#8249;</button>
+  <button class="nav" id="fwd" title="Forward" aria-label="Forward">&#8250;</button>
+  <button class="nav" id="reload" title="Reload" aria-label="Reload">&#8635;</button>
+  <input id="addr" type="text" spellcheck="false" autocomplete="off" aria-label="Address or search" placeholder="Search or enter an address">
+  <button class="nav" id="settingsbtn" title="Settings" aria-label="Settings">&#9881;</button>
+</div>
+<div id="scrim" hidden>
+  <div id="panel" role="dialog" aria-modal="true" aria-labelledby="stitle">
+    <div class="phead"><h2 id="stitle">Settings</h2><button class="nav" id="sclose" aria-label="Close settings">&times;</button></div>
+    <label class="field">Home page<input id="s-home" type="text" spellcheck="false" autocomplete="off"></label>
+    <label class="field">Search engine
+      <select id="s-engine">
+        <option value="https://html.duckduckgo.com/html/?q=%s">DuckDuckGo</option>
+        <option value="custom">Custom</option>
+      </select>
+    </label>
+    <label class="field" id="customrow" hidden>Custom search address (put %s where the search words go)<input id="s-custom" type="text" spellcheck="false" autocomplete="off"></label>
+    <div class="actions"><button id="s-save">Save</button><button id="s-reset">Reset to defaults</button></div>
+    <p class="note" id="s-note" aria-live="polite"></p>
+  </div>
+</div>
+<iframe id="frame" title="Page"></iframe>
+
+<script>
+(function () {
+  "use strict";
+  var DEFAULTS = { home: "https://html.duckduckgo.com/html/", engine: "https://html.duckduckgo.com/html/?q=%s" };
+  function loadSettings() {
+    try {
+      return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem("massacre.settings") || "{}"));
+    } catch (e) {
+      return Object.assign({}, DEFAULTS);
+    }
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem("massacre.settings", JSON.stringify(s)); } catch (e) { /* storage blocked: settings last this visit only */ }
+  }
+  function searchUrl(q) { return loadSettings().engine.replace("%s", encodeURIComponent(q)); }
+  var HOME = loadSettings().home;
+  var tabs = [];
+  var cur = -1;
+  var frame = document.getElementById("frame");
+  var addr = document.getElementById("addr");
+  var list = document.getElementById("list");
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function toAddress(input) {
+    var s = input.trim();
+    if (!s) return HOME;
+    if (/^https?:\/\//i.test(s)) return s;
+    if (!/\s/.test(s) && /^[^\s]+\.[a-z]{2,}(\/|$)/i.test(s)) return "https://" + s;
+    return searchUrl(s);
+  }
+  function load(url) {
+    frame.src = "/p?u=" + encodeURIComponent(url);
+  }
+  function show(i) {
+    cur = i;
+    var t = tabs[i];
+    if (t) { addr.value = t.url; load(t.url); }
+    else { addr.value = ""; frame.src = "about:blank"; }
+    render();
+  }
+  function open(url) {
+    tabs.push({ url: url, title: url, hist: [url], idx: 0 });
+    show(tabs.length - 1);
+  }
+  function navigate(url) {
+    var t = tabs[cur];
+    if (!t) return open(url);
+    t.hist = t.hist.slice(0, t.idx + 1);
+    t.hist.push(url);
+    t.idx = t.hist.length - 1;
+    t.url = url;
+    t.title = url;
+    addr.value = url;
+    load(url);
+    render();
+  }
+  function closeTab(i) {
+    tabs.splice(i, 1);
+    if (!tabs.length) return open(HOME);
+    show(Math.min(i, tabs.length - 1));
+  }
+  function render() {
+    list.innerHTML = tabs.map(function (t, i) {
+      return '<div class="tab' + (i === cur ? " on" : "") + '" data-i="' + i + '" role="tab">' +
+        "<span>" + esc(t.title || t.url) + "</span>" +
+        '<button data-x="' + i + '" title="Close tab" aria-label="Close tab">&times;</button></div>';
+    }).join("");
+    var t = tabs[cur];
+    $("back").disabled = !t || t.idx <= 0;
+    $("fwd").disabled = !t || t.idx >= t.hist.length - 1;
+    document.title = (t && t.title ? t.title + " · " : "") + "MASSACRE";
+  }
+
+  // The proxy's own pages are same-origin, so we can read where the user ended up after clicking a link.
+  frame.addEventListener("load", function () {
+    var t = tabs[cur];
+    if (!t) return;
+    try {
+      var real = new URL(frame.contentWindow.location.href).searchParams.get("u");
+      if (real && real !== t.url) {
+        t.hist = t.hist.slice(0, t.idx + 1);
+        t.hist.push(real);
+        t.idx = t.hist.length - 1;
+        t.url = real;
+        addr.value = real;
+      }
+      var doc = frame.contentDocument;
+      if (doc && doc.title) t.title = doc.title;
+    } catch (e) { /* not readable: keep the address we know */ }
+    render();
+  });
+
+  list.addEventListener("click", function (e) {
+    var x = e.target.closest("[data-x]");
+    if (x) return closeTab(Number(x.dataset.x));
+    var tab = e.target.closest("[data-i]");
+    if (tab) show(Number(tab.dataset.i));
+  });
+  $("new").addEventListener("click", function () { open(HOME); });
+  $("back").addEventListener("click", function () {
+    var t = tabs[cur];
+    if (t && t.idx > 0) { t.idx--; t.url = t.hist[t.idx]; addr.value = t.url; load(t.url); render(); }
+  });
+  $("fwd").addEventListener("click", function () {
+    var t = tabs[cur];
+    if (t && t.idx < t.hist.length - 1) { t.idx++; t.url = t.hist[t.idx]; addr.value = t.url; load(t.url); render(); }
+  });
+  $("reload").addEventListener("click", function () {
+    var t = tabs[cur];
+    if (t) load(t.url);
+  });
+  addr.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); navigate(toAddress(addr.value)); addr.blur(); }
+    if (e.key === "Escape") { var t = tabs[cur]; addr.value = t ? t.url : ""; addr.blur(); }
+  });
+  addr.addEventListener("focus", function () { addr.select(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.altKey && e.key.toLowerCase() === "t") { e.preventDefault(); open(HOME); }
+    if (e.altKey && e.key.toLowerCase() === "w" && tabs.length) { e.preventDefault(); closeTab(cur); }
+    if (e.altKey && e.key.toLowerCase() === "l") { e.preventDefault(); addr.focus(); }
+  });
+
+  // ---------- settings ----------
+  var PRESET = DEFAULTS.engine;
+  var scrim = $("scrim"), sHome = $("s-home"), sEngine = $("s-engine"), sCustom = $("s-custom");
+  var customRow = $("customrow"), sNote = $("s-note");
+  function openSettings() {
+    var s = loadSettings();
+    sHome.value = s.home;
+    sEngine.value = s.engine === PRESET ? PRESET : "custom";
+    sCustom.value = s.engine === PRESET ? "" : s.engine;
+    customRow.hidden = s.engine === PRESET;
+    sNote.textContent = "";
+    scrim.hidden = false;
+    sHome.focus();
+  }
+  function closeSettings() { scrim.hidden = true; }
+  $("settingsbtn").addEventListener("click", openSettings);
+  $("sclose").addEventListener("click", closeSettings);
+  scrim.addEventListener("mousedown", function (e) { if (e.target === scrim) closeSettings(); });
+  sEngine.addEventListener("change", function () { customRow.hidden = sEngine.value !== "custom"; });
+  $("s-save").addEventListener("click", function () {
+    var engine = sEngine.value === PRESET ? PRESET : sCustom.value.trim();
+    if (engine !== PRESET && (!/^https:\/\//i.test(engine) || engine.indexOf("%s") < 0)) {
+      sNote.textContent = "A custom search needs an https:// address with %s where the words go.";
+      return;
+    }
+    HOME = toAddress(sHome.value);
+    saveSettings({ home: HOME, engine: engine });
+    sNote.textContent = "Saved. New tabs open " + HOME;
+  });
+  $("s-reset").addEventListener("click", function () {
+    try { localStorage.removeItem("massacre.settings"); } catch (e) { /* nothing to remove */ }
+    HOME = DEFAULTS.home;
+    openSettings();
+    sNote.textContent = "Settings reset to defaults.";
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !scrim.hidden) closeSettings();
+  });
+
+  open(HOME);
+})();
+</script>
+</body>
+</html>
